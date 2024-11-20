@@ -3,7 +3,7 @@
 blueprint:
   name: Alarmo Keypad Sync MOD by array81
   description: |-
-    # \U0001F4F1 Alarmo Keypad Sync
+    # 📱 Alarmo Keypad Sync
     **Version: 1.1**
     
     Blueprint based on code found on the Home Assistant forum: [Click Here](https://community.home-assistant.io/t/zigbee2mqtt-control-alarmo-via-keypad/420016/1)
