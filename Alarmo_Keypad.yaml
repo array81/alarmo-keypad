@@ -1,12 +1,21 @@
+#https://community.home-assistant.io/t/zigbee2mqtt-control-alarmo-via-keypad/420016/1
+
 blueprint:
   name: Alarmo Keypad Sync MOD by array81
-  description: "# \U0001F4F1 Alarmo Keypad Sync\n**Version: 1.0**\n\nBlueprint based
-    on code found on the Home Assistant forum: [Click Here](https://community.home-assistant.io/t/zigbee2mqtt-control-alarmo-via-keypad/420016/1)\n\n**The
-    Features:**\n  - Code optimized to work properly with the Xfinity XHK1-UE keypad:\n
-    \   1. All modes are supported (disarm, home, away and night);\n    2. The LEDs
-    work properly;\n  - Added the ability to receive notifications on mobile devices
-    in case of an error.\n\n\nCredits: [neliss](https://community.home-assistant.io/u/neliss)
-    and [jsdphilly](https://community.home-assistant.io/u/jsdphilly)"
+  description: |-
+    # \U0001F4F1 Alarmo Keypad Sync
+    **Version: 1.1**
+    
+    Blueprint based on code found on the Home Assistant forum: [Click Here](https://community.home-assistant.io/t/zigbee2mqtt-control-alarmo-via-keypad/420016/1)
+    
+    **The Features:**
+      - Code optimized to work properly with the Xfinity XHK1-UE keypad:
+        1. All modes are supported (disarm, home, away and night);
+        2. The LEDs work properly;
+      - Added the ability to receive notifications on mobile devices in case of an error.
+      
+      
+      Credits: [neliss](https://community.home-assistant.io/u/neliss) and [jsdphilly](https://community.home-assistant.io/u/jsdphilly)
   domain: automation
   input:
     state_topic:
