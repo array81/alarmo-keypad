@@ -2,12 +2,20 @@
 
 blueprint:
   name: Alarmo Keypad Sync MOD by array81
-  description: "# \U0001F4F1 Alarmo Keypad Sync\n**Version: 1.0**\n\nBlueprint based 
-    on code found on the Home Assistant forum: [Click Here](https://community.home-assistant.io/t/zigbee2mqtt-control-alarmo-via-keypad/420016/1)\n\n**The
-    Features:**\n  - Code optimized to work properly with the Xfinity XHK1-UE keypad:\n
-    \   1. All modes are supported (disarm, home, away and night);\n    2. The LEDs work properly;\n  - Added the ability 
-    to receive notifications on mobile devices in case of an error.\n\n\nCredits: [neliss](https://community.home-assistant.io/u/neliss) and 
-    [jsdphilly](https://community.home-assistant.io/u/jsdphilly)"
+  description: |-
+    # 📱 Alarmo Keypad Sync
+    **Version: 1.1**
+    
+    Blueprint based on code found on the Home Assistant forum: [Click Here](https://community.home-assistant.io/t/zigbee2mqtt-control-alarmo-via-keypad/420016/1)
+    
+    **The Features:**
+      - Code optimized to work properly with the Xfinity XHK1-UE keypad:
+        1. All modes are supported (disarm, home, away and night);
+        2. The LEDs work properly;
+      - Added the ability to receive notifications on mobile devices in case of an error.
+      
+      
+      Credits: [neliss](https://community.home-assistant.io/u/neliss) and [jsdphilly](https://community.home-assistant.io/u/jsdphilly)
   domain: automation
   input:
     state_topic:
@@ -16,19 +24,24 @@ blueprint:
         your Z2M Addon Configuration) and the Friendly Name of your keypad in Z2M.
         Example: zigbee2mqtt/Keypad'
       selector:
-        text: {}
+        text:
+          multiline: false
+          multiple: false
     set_topic:
       name: MQTT Set Topic of your Zigbee2MQTT Keypad
       description: 'This is the same as your State Topic, with the addition of /set.
         Example: zigbee2mqtt/Keypad/set'
       selector:
-        text: {}
+        text:
+          multiline: false
+          multiple: false
     entity:
       name: Alarmo entity
       description: An alarm control panel entity from alarmo.
       selector:
         entity:
-          domain: alarm_control_panel
+          domain:
+          - alarm_control_panel
           integration: alarmo
           multiple: false
     notify_device:
@@ -45,7 +58,14 @@ blueprint:
       description: Title of your message.
       default: Alarmo error
       selector:
-        text: {}
+        text:
+          multiline: false
+          multiple: false
+  source_url: https://raw.githubusercontent.com/array81/alarmo-keypad/06dc3d252a770970544713846eefe0ec31d4cc87/Alarmo_Keypad.yaml
+variables:
+  alarmo_entity_id: !input entity
+trace:
+  stored_traces: 30
 trigger:
 - platform: state
   entity_id: !input entity
@@ -110,7 +130,7 @@ action:
     - service: mqtt.publish
       data_template:
         topic: !input set_topic
-        payload: "{\n  \"arm_mode\": \n  {\n    \"mode\": \"arm_night_zones\"\n  }\n}"		
+        payload: "{\n  \"arm_mode\": \n  {\n    \"mode\": \"arm_night_zones\"\n  }\n}"
   - conditions:
     - condition: trigger
       id: to_state_armed_away
@@ -161,6 +181,16 @@ action:
         - condition: template
           value_template: '{{ trigger.payload_json.action == "arm_all_zones"  }}'
         sequence:
+        - &disarm_before_arm
+          if:
+          - condition: template
+            value_template: '{{ "armed_" not in states[alarmo_entity_id].state }}'
+          then:
+          - service: alarmo.disarm
+            data:
+              entity_id: !input entity
+              code: '{{ trigger.payload_json.action_code }}'
+              context_id: '{{ trigger.payload_json.action_transaction }}'
         - service: alarmo.arm
           data:
             entity_id: !input entity
@@ -171,6 +201,7 @@ action:
         - condition: template
           value_template: '{{ trigger.payload_json.action == "arm_day_zones"  }}'
         sequence:
+        - *disarm_before_arm
         - service: alarmo.arm
           data:
             entity_id: !input entity
@@ -181,6 +212,7 @@ action:
         - condition: template
           value_template: '{{ trigger.payload_json.action == "arm_night_zones"  }}'
         sequence:
+        - *disarm_before_arm
         - service: alarmo.arm
           data:
             entity_id: !input entity
@@ -208,7 +240,7 @@ action:
             - service: notify.mobile_app_{{ device_attr(repeat.item, 'name')| slugify }}
               data:
                 title: !input notify_title
-                message: 'Invalid code'
+                message: Invalid code
                 data:
                   sticky: 'true'
       - conditions:
@@ -218,8 +250,7 @@ action:
         - service: mqtt.publish
           data_template:
             topic: !input set_topic
-            payload: "{\n  \"arm_mode\": \n  {\n    \"transaction\": {{ trigger.event.data.context_id
-              }},\n    \"mode\": \"not_ready\"\n  }\n}"
+            payload: "{\n  \"arm_mode\": \n  {\n    \"transaction\": {{ trigger.event.data.context_id }},\n    \"mode\": \"not_ready\"\n  }\n}"
         - alias: Send a notification to each device
           repeat:
             for_each: !input notify_device
@@ -227,9 +258,22 @@ action:
             - service: notify.mobile_app_{{ device_attr(repeat.item, 'name')| slugify }}
               data:
                 title: !input notify_title
-                message: 'Not ready (possible open sensors)'
+                message: |-
+                  Following sensors prevent from arming:
+                  {{
+                    (states[alarmo_entity_id].attributes.open_sensors)
+                    | default([])
+                    | list
+                    | map('state_attr', 'friendly_name')
+                    | map('lower')
+                    | list
+                    | join(", ")
+                    | safe
+                  }}
                 data:
                   sticky: 'true'
+                  channel: "Alarmo Error"
+                  importance: high
       - conditions:
         - condition: template
           value_template: '{{ trigger.event.data.reason == ''not_allowed'' }}'
@@ -239,16 +283,16 @@ action:
         - service: mqtt.publish
           data_template:
             topic: !input set_topic
-            payload: "{\n  \"arm_mode\": \n  {\n    \"transaction\": {{ trigger.event.data.context_id
-              }},\n    \"mode\": \"already_disarmed\"\n  }\n}"
+            payload: "{\n  \"arm_mode\": \n  {\n    \"transaction\": {{ trigger.event.data.context_id }},\n    \"mode\": \"already_disarmed\"\n  }\n}"
         - alias: Send a notification to each device
           repeat:
             for_each: !input notify_device
             sequence:
-            - service: notify.mobile_app_{{ device_attr(repeat.item, 'name')| slugify }}
+            - service: notify.mobile_app_{{ device_attr(repeat.item, 'name')| slugify
+                }}
               data:
                 title: !input notify_title
-                message: 'Already disarmed'
+                message: Already disarmed
                 data:
                   sticky: 'true'
   - conditions:
@@ -267,8 +311,7 @@ action:
         - service: mqtt.publish
           data_template:
             topic: !input set_topic
-            payload: "{\n  \"arm_mode\": \n  {\n    \"transaction\": {{ trigger.event.data.context_id
-              }},\n    \"mode\": \"arm_all_zones\"\n  }\n}"
+            payload: "{\n  \"arm_mode\": \n  {\n    \"transaction\": {{ trigger.event.data.context_id }},\n    \"mode\": \"arm_all_zones\"\n  }\n}"
       - conditions:
         - condition: template
           value_template: '{{ trigger.event.data.action == ''arm'' }}'
@@ -280,8 +323,7 @@ action:
         - service: mqtt.publish
           data_template:
             topic: !input set_topic
-            payload: "{\n  \"arm_mode\": \n  {\n    \"transaction\": {{ trigger.event.data.context_id
-              }},\n    \"mode\": \"arm_day_zones\"\n  }\n}"
+            payload: "{\n  \"arm_mode\": \n  {\n    \"transaction\": {{ trigger.event.data.context_id }},\n    \"mode\": \"arm_day_zones\"\n  }\n}"
       - conditions:
         - condition: template
           value_template: '{{ trigger.event.data.action == ''arm'' }}'
@@ -293,8 +335,7 @@ action:
         - service: mqtt.publish
           data_template:
             topic: !input set_topic
-            payload: "{\n  \"arm_mode\": \n  {\n    \"transaction\": {{ trigger.event.data.context_id
-              }},\n    \"mode\": \"arm_night_zones\"\n  }\n}"
+            payload: "{\n  \"arm_mode\": \n  {\n    \"transaction\": {{ trigger.event.data.context_id }},\n    \"mode\": \"arm_night_zones\"\n  }\n}"
       - conditions:
         - condition: template
           value_template: '{{ trigger.event.data.action == ''disarm'' }}'
@@ -304,7 +345,6 @@ action:
         - service: mqtt.publish
           data_template:
             topic: !input set_topic
-            payload: "{\n  \"arm_mode\": \n  {\n    \"transaction\": {{ trigger.event.data.context_id
-              }},\n    \"mode\": \"disarm\"\n  }\n}"
+            payload: "{\n  \"arm_mode\": \n  {\n    \"transaction\": {{ trigger.event.data.context_id }},\n    \"mode\": \"disarm\"\n  }\n}"
 mode: parallel
 max: 10
