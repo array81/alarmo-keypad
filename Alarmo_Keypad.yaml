@@ -184,7 +184,7 @@ action:
         - &disarm_before_arm
           if:
           - condition: template
-            value_template: '{{ "armed_" not in states[alarmo_entity_id].state }}'
+            value_template: '{{ states[alarmo_entity_id].state in ["arming", "pending", "triggered"] }}'
           then:
           - service: alarmo.disarm
             data:
